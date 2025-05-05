@@ -37,20 +37,20 @@ Thumbs.db
 *.onnx
 
 # Processed data
-data/
-logs/
+data/*
+logs/*
 *.csv
 *.tsv
 *.json
 
 # Experiments
-experiments/results/
-experiments/tmp/
+experiments/results/*
+experiments/tmp/*
 wandb/
 
 # XAI outputs
-outputs/
-feature_rankings/
+outputs/*
+feature_rankings/*
 
 # LFS-tracked models/datasets (optional)
 *.pt
