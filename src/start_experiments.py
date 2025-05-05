@@ -126,7 +126,7 @@ if __name__ == "__main__":
 
     # Optional: Nur beim ersten Mal oder bei neuen Daten, damit sequenzen berechnet werden und nicht zur
     # laufzeit berechnet werden müssen
-    with open(EXPERIMENTS_ROOT / "rv" / "foval" / "intgrad_time.json") as f:
+    with open(EXPERIMENTS_ROOT / "rv" / "foval" / "deepACTIF.json") as f:
         cfg = json.load(f)
     cfg = resolve_paths(cfg, dataset_name="rv", model_name="foval", method_name="intgrad_accuracy")
 
