@@ -1,0 +1,92 @@
+# 📘 DeepACTIF Publication Plan
+
+## ✅ Goal: Publish DeepACTIF as a General, Efficient, and Robust XAI Method
+
+To publish DeepACTIF in a top-tier venue (e.g., NeurIPS, ICLR), the method must demonstrate:
+- Generalizability across data types and model architectures
+- Applicability to different layer types
+- Strong empirical comparisons with existing XAI methods
+- Practical value (efficiency, stability, faithfulness)
+
+---
+
+## 📌 3-Phase Development & Evaluation Plan
+
+### **PHASE 1: Generalize the Method Internally**
+
+#### 🧱 Target Layer Types
+| Layer Type           | Model Type            | Usage                  |
+|----------------------|-----------------------|------------------------|
+| `LSTM`               | Recurrent models      | ✅ Already supported   |
+| `MLP / Dense`        | Tabular models        | ➕ Add support         |
+| `Transformer Block`  | Sequential, attention | 🔥 Strongly recommended |
+| `Conv2D`             | Vision (optional)     | ➕ For sanity check    |
+
+#### ✅ Actions
+- Abstract DeepACTIF to work on arbitrary layer outputs
+- Implement forward hook system to extract activations
+- Apply INV aggregation on: time, tokens, neurons, or spatial grids (as applicable)
+
+---
+
+### **PHASE 2: Define Compatibility and Usage Guidelines**
+
+Create a clear table explaining how DeepACTIF applies to each layer type:
+
+#### 🧾 Example: Supported Layers Table
+
+| Layer Type         | Compatible | Aggregation Strategy   | Notes                   |
+|--------------------|------------|-------------------------|-------------------------|
+| LSTM               | ✅         | Across time             | Already implemented     |
+| Transformer        | ✅         | Across tokens           | Use final encoder block |
+| MLP / Dense        | ✅         | Across features         | Input or penultimate    |
+| Conv2D (optional)  | ❓         | Pool over spatial grid  | Optional for vision     |
+
+---
+
+### **PHASE 3: Evaluate Against Standard XAI Methods**
+
+#### 🎯 Key Comparison Axes
+- Runtime and scalability
+- Attribution stability / consistency
+- Accuracy @ top-k features (feature pruning)
+- Qualitative interpretability
+
+#### 🧪 Benchmark Setup
+
+| Task                 | Dataset       | Model           | Comparison Methods             |
+|----------------------|---------------|------------------|---------------------------------|
+| Sequence Classification | Gaze, ECG     | LSTM / Transformer | IG, SHAP, DeepLIFT             |
+| Tabular Classification | Adult Income  | MLP / TabTransformer | SHAP, LIME, IG                |
+| (Optional) Image Classification | MNIST / CIFAR | CNN              | GradCAM, IG (visual sanity)    |
+
+---
+
+## 🧾 Paper Deliverables Checklist
+
+- [ ] Unified `DeepACTIFExplainer` class
+- [ ] Table of supported architectures/layers
+- [ ] Runtime & stability comparison with IG, SHAP, LIME
+- [ ] Feature pruning experiments (accuracy @ k%)
+- [ ] Qualitative visualizations (bar plots, saliency maps)
+- [ ] Ablation: effect of layer choice, sequence length, etc.
+- [ ] Rebuttal-ready: “Which architectures does DeepACTIF support?”
+
+---
+
+## ✨ Optional Extensions (Nice-to-Have)
+
+- [ ] SHAP-IQ or Quantus-based quality metrics
+- [ ] TransformerLens or mechanistic interpretability comparison
+- [ ] Multi-layer aggregation (input + penultimate + output)
+
+---
+
+## ✅ Next Step: Build the Project Scaffold
+
+Would you like help generating:
+- File/folder structure?
+- Configs and CLI template?
+- PyTorch hooks to generalize across layers?
+
+Let's get coding 🚀
