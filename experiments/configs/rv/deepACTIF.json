@@ -1,0 +1,33 @@
+{
+  "dataset": {
+    "name": "robustvision",
+    "params": {
+      "root": "__DATA_RAW__",
+      "split": "all",
+      "sequence_length": 10,
+      "feature_config": "__FEATURE_CONFIG__",
+      "save_path": "__DATA_PROCESSED__",
+      "load_processed": true
+    }
+  },
+  "model": {
+    "name": "foval",
+    "params": {
+      "hidden_dim": 128,
+      "learning_rate": 0.032710957748580696,
+      "batch_size": 460,
+      "weight_decay": 0.09068313284126414,
+      "dropout_rate": 0.24506232752850068,
+      "embed_dim": 1435,
+      "fc1_dim": 1763
+    }
+  },
+  "eval": {
+    "device": "cuda:0",
+    "output_dir": "__RESULTS_DIR__"
+  },
+  "xai": {
+    "method": "deepactif",
+    "params": {}
+  }
+}
