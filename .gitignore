@@ -1,0 +1,63 @@
+# Python Basics
+__pycache__/
+*.py[cod]
+*.so
+*.ipynb_checkpoints
+
+# Virtual environments
+.env/
+.venv/
+env/
+venv/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs and debug
+*.log
+*.tmp
+*.bak
+
+# VSCode and PyCharm
+.vscode/
+.idea/
+
+# Cache and artifacts
+*.pkl
+*.pt
+*.pth
+*.npz
+*.npy
+*.joblib
+*.ckpt
+*.onnx
+
+# Processed data
+data/
+*.csv
+*.tsv
+*.jsonl
+
+# Experiments
+experiments/results/
+experiments/tmp/
+wandb/
+
+# XAI outputs
+outputs/
+feature_rankings/
+
+# LFS-tracked models/datasets (optional)
+*.pt
+*.pkl
+*.npz
+*.npy
+
+# Ignore compiled Cython/C++
+build/
+dist/
+*.egg-info/
