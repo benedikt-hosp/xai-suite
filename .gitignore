@@ -38,9 +38,10 @@ Thumbs.db
 
 # Processed data
 data/
+logs/
 *.csv
 *.tsv
-*.jsonl
+*.json
 
 # Experiments
 experiments/results/
@@ -56,6 +57,7 @@ feature_rankings/
 *.pkl
 *.npz
 *.npy
+*.mp4
 
 # Ignore compiled Cython/C++
 build/
