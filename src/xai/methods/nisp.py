@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+# from src.start_experiments import logger
+
 
 def nisp(model, dataloader, feature_names, version="v1", device="cuda"):
     """
@@ -20,6 +22,8 @@ def nisp(model, dataloader, feature_names, version="v1", device="cuda"):
     Returns:
         List of dicts: [{'feature': ..., 'attribution': ...}, ...]
     """
+    lprint(f"[XAI] Using {len(feature_names)} features for attribution.")
+    print("feature_names", feature_names)
     model.eval()
     model.to(device)
     all_attributions = []

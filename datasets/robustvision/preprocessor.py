@@ -66,10 +66,7 @@ def clean_data(df, target_column_name='Gt_Depth', multiplication=1):
     :param df: The raw dataframe.
     :return: Cleaned dataframe.
     """
-    # logger.info("GT ", target_column_name)
-    # df = df.dropna(how='all').replace([np.inf, -np.inf], np.nan).dropna().copy()
-    # df = df[(df['Gt_Depth'] > minDepth) & (df['Gt_Depth'] <= maxDepth)]
-    # df[target_column_name] = df['Gt_Depth'].multiply(100).reset_index(drop=True)
+
 
     # Remove rows where all elements are NaN
     df = df.dropna(how='all')
@@ -79,6 +76,7 @@ def clean_data(df, target_column_name='Gt_Depth', multiplication=1):
 
     # df2 = df[df['Gt_Depth'] > 0.1]
     df2 = df[df['Gt_Depth'] > 0.35]
+    print("Removed rows with Gt_Depth <= 0.35")
     df2 = df2[df2['Gt_Depth'] <= 3]
 
     df2["Gt_Depth"] = df2["Gt_Depth"].multiply(100)
@@ -171,16 +169,30 @@ def getAngle(row):
 
     return angle_degrees
 
+from sklearn.preprocessing import RobustScaler
+import pandas as pd
 
-def global_normalization(data):
-    features = data.drop(columns=['SubjectID', 'Gt_Depth'])
-    scaler = RobustScaler()  # Global scaler
+def global_normalization(data: pd.DataFrame) -> pd.DataFrame:
+    # 1) which columns *not* to scale?
+    not_features = ["SubjectID", "GT_Depth"]
 
-    normalized_features = scaler.fit_transform(features)
-    data_normalized = pd.DataFrame(normalized_features, columns=features.columns)
-    data_normalized['SubjectID'] = data['SubjectID'].values
-    data_normalized['Gt_Depth'] = data['Gt_Depth'].values
-    return data_normalized
+    # # 2) our true feature columns
+    feature_cols = [c for c in data.columns if c not in not_features]
+
+    # 3) scale *only* those
+    scaler = RobustScaler()
+    scaled = scaler.fit_transform(data[feature_cols])
+
+    # 4) rebuild a DataFrame with exactly the same index
+    df_scaled = pd.DataFrame(scaled, columns=feature_cols, index=data.index)
+
+    # 5) re-attach the meta and target columns untouched
+    for col in not_features:
+        df_scaled[col] = data[col].values
+
+    return df_scaled
+
+
 
 
 def calculate_ipd(row):
@@ -207,7 +219,7 @@ def calculate_ipd(row):
         # Calculate IPD using the ground truth depth and vergence angle
         ipd = 2 * focusedDepth * math.tan(math.radians(vergenceAngle) / 2)
     except ValueError as e:
-        logger.info(f"Error in calculating IPD: {e}")
+        print(f"Error in calculating IPD: {e}")
         ipd = np.nan  # Return NaN in case of calculation errors
 
     return ipd
@@ -408,15 +420,6 @@ def createFeatures(data_in, input_features=None):
 
     data_in = data_in.replace([np.inf, -np.inf], np.nan)
     data_in = data_in.dropna()
-    # Define excluded features
-    excluded_features = ['World_Gaze_Origin_R_X', 'World_Gaze_Origin_R_Z', 'World_Gaze_Origin_L_X',
-                         'World_Gaze_Origin_L_Z']
-
-    required_columns = input_features + ['SubjectID', 'Gt_Depth']
-    data_in = data_in[required_columns]
-    # data_in = data_in[input_features]
-    # logger.info("Preprocessor: Size of created features: ", data_in.shape)
-    # logger.info("Preprocessor: Features ", data_in.columns)
 
 
     return data_in

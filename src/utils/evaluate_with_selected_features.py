@@ -1,29 +1,56 @@
-import torch
-from torch.utils.data import DataLoader
-import numpy as np
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+# src/utils/evaluate_with_selected_features.py
 
-def evaluate_with_selected_features(model, dataset, selected_features, mode="keep", batch_size=256, device="cuda"):
-    # Reduziere Feature-Tensor auf relevante Features
-    dataset.set_selected_features(selected_features, mode=mode)
+import json
+from copy import deepcopy
 
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-    model.to(device)
-    model.eval()
+from datasets.factory        import get_dataset
+# from src.trainer_factory     import build_trainer
+from src.utils.evaluate_loocv import run_loocv
+from src.utils.torchtrainer import build_trainer
 
-    all_preds, all_targets = [], []
 
-    with torch.no_grad():
-        for x, y in dataloader:
-            x, y = x.to(device), y.to(device)
-            pred = model(x)
-            all_preds.append(pred.cpu().numpy())
-            all_targets.append(y.cpu().numpy())
+def evaluate_with_selected_features(cfg):
+    """
+    1) Load a saved feature‐ranking JSON
+    2) Re-load your preprocessed tensor cache
+    3) Subset or drop features based on strategy + topk%
+    4) Build a fresh Trainer factory and run LOOCV
+    """
+    # --- 1) load ranking list ---
+    with open(cfg["ranking_path"], "r") as f:
+        rankings = json.load(f)
+    total = len(rankings)
+    if total == 0:
+        raise ValueError(f"No features in ranking: {cfg['ranking_path']}")
 
-    y_true = np.concatenate(all_targets)
-    y_pred = np.concatenate(all_preds)
+    top_k = int(cfg["topk_percent"] / 100 * total)
+    if top_k < 1:
+        raise ValueError(f"topk_percent too small: {cfg['topk_percent']}% of {total}")
 
-    mae = mean_absolute_error(y_true, y_pred)
-    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+    # --- 2) load dataset from cache ---
+    # your task JSON uses `dataset_name` & `dataset_params`
+    ds_name   = cfg["dataset"]["name"]
+    ds_params = deepcopy(cfg["dataset"]["params"])
+    ds_params["load_processed"] = True
 
-    return mae, rmse
+    dataset = get_dataset(ds_name, ds_params)
+
+    # --- 3) subset/drop features ---
+    selected = [r["feature"] for r in rankings[:top_k]]
+    dataset.set_selected_features(selected, mode=cfg["strategy"])
+    print(f"[INFO] Strategy={cfg['strategy']}, now using {len(dataset.feature_names)} features")
+
+    # --- 4) build trainer & run LOOCV ---
+    # note: pass both the dataset (for shape) and model cfg
+    # trainer_factory = build_trainer(dataset)
+    # subject_mae, mean_mae = run_loocv(trainer_factory, dataset)
+    # trainer_factory = build_trainer(dataset)
+    # subject_mae, mean_mae = run_loocv(trainer_factory, dataset)
+    # 4. Build trainer factory (this returns a function expecting input_dim)
+    trainer_factory = build_trainer(cfg["model"])
+    subject_mae, mean_mae = run_loocv(trainer_factory, dataset)
+
+    return {
+        "subject_mae": subject_mae,
+        "mean_mae":   mean_mae
+    }

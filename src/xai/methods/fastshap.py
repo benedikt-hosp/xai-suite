@@ -12,8 +12,7 @@ def fastshap(
     dataloader,
     feature_names,
     device="cuda",
-    n_samples=100,
-    actif_variant="inv"
+    n_samples=100
 ):
     """
     FastSHAP explanation using a linear surrogate model and ACTIF aggregation.
@@ -29,7 +28,8 @@ def fastshap(
     Returns:
         List of feature importance dicts sorted by attribution.
     """
-
+    print(f"[XAI] Using {len(feature_names)} features for attribution.")
+    print("feature_names", feature_names)
     model.eval()
     model.to(device)
     all_importances = []
@@ -71,20 +71,7 @@ def fastshap(
     # ACTIF aggregation strategies
     # ============================
 
-    if actif_variant == "inv":
-        importance = inverse_weighting(attributions)
-    elif actif_variant == "mean":
-        importance = np.mean(np.abs(attributions), axis=0)
-    elif actif_variant == "meanstd":
-        mean = np.mean(np.abs(attributions), axis=0)
-        std = np.std(attributions, axis=0)
-        importance = mean / (std + 1e-6)
-    elif actif_variant == "robust":
-        median = np.median(np.abs(attributions), axis=0)
-        iqr = np.percentile(attributions, 75, axis=0) - np.percentile(attributions, 25, axis=0)
-        importance = median / (iqr + 1e-6)
-    else:
-        raise ValueError(f"Unknown ACTIF variant: {actif_variant}")
+    importance = inverse_weighting(attributions)
 
     df = pd.DataFrame([importance], columns=feature_names)
     sorted_df = df.abs().T.sort_values(by=0, ascending=False).reset_index()

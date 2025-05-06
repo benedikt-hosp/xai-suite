@@ -4,7 +4,11 @@ import pandas as pd
 from tqdm import tqdm
 
 
+
 def deepactif(model, dataloader, feature_names, actif_variant='inv', device='cuda'):
+    print(f"[XAI] Computing feature importances using deepactif.")
+    print(f"[XAI] Using {len(feature_names)} features for attribution.")
+    print("feature_names", feature_names)
     model.eval()
     model.to(device)
     all_importances = []

@@ -1,6 +1,10 @@
 import os
 import json
 from pathlib import Path
+import os
+import shutil
+
+from src.utils.project_paths import FEATURE_RANKING_LISTS
 
 
 # def save_feature_ranking(dataset_name, model_name, method_name, feature_names, scores):
@@ -23,9 +27,12 @@ from pathlib import Path
 #     with open(save_path, "w") as f:
 #         json.dump(importance_scores, f, indent=2)
 
-def save_feature_ranking(dataset_name, model_name, method_name, scores, output_dir):
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    out_path = output_dir / f"{method_name}_ranking.json"
+def save_feature_ranking(dataset_name, model_name, method_name, scores, base_dir=FEATURE_RANKING_LISTS):
+    save_dir = Path(base_dir) / dataset_name / model_name
+    save_dir.mkdir(parents=True, exist_ok=True)
+    out_path = save_dir / f"{method_name}.json"
+
     with open(out_path, "w") as f:
         json.dump(scores, f, indent=4)
+
+    print(f"[SAVE] Feature ranking saved to {out_path}")

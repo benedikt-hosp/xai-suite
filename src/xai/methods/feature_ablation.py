@@ -6,8 +6,11 @@ import pandas as pd
 from tqdm import tqdm
 from captum.attr import FeatureAblation
 
+# from src.start_experiments import logger
+
 
 def feature_ablation(model, dataloader, feature_names, device="cuda"):
+
     """
     Feature ablation using Captum with ACTIF-style aggregation (mean absolute values).
 
@@ -20,6 +23,9 @@ def feature_ablation(model, dataloader, feature_names, device="cuda"):
     Returns:
         List of dicts: [{feature, attribution}], sorted by descending attribution.
     """
+
+    print(f"[XAI] Using {len(feature_names)} features for attribution.")
+    print("feature_names", feature_names)
     model.eval()
     model.to(device)
 
@@ -35,10 +41,11 @@ def feature_ablation(model, dataloader, feature_names, device="cuda"):
             attr = ablator.attribute(inputs)
             attr_np = attr.detach().cpu().numpy().sum(axis=1)  # sum over timesteps
             all_attributions.append(attr_np)
+            del inputs, attr
+
         except Exception as e:
             print(f"[ERROR] Ablation failed at batch {batch_idx}: {e}")
 
-        del inputs, attr
         torch.cuda.empty_cache()
 
     if not all_attributions:

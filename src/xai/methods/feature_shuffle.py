@@ -4,7 +4,13 @@ import pandas as pd
 import torch
 from tqdm import tqdm
 
+# from src.start_experiments import logger
+
+
 def feature_shuffle(model, dataloader, feature_names, baseline_type='mean', device="cuda"):
+    print(f"[XAI] Using {len(feature_names)} features for attribution.")
+    print("feature_names", feature_names)
+
     model.eval()
     model.to(device)
 

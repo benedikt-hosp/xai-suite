@@ -12,6 +12,11 @@ DATA_RAW = DATA_DIR / "robustvision"
 DATA_PROCESSED = DATA_DIR  / "processed" / "robustvision"
 FEATURE_CONFIG = PROJECT_ROOT / "datasets" / "robustvision" / "features.json"
 EXPERIMENT_RESULTS = PROJECT_ROOT / "results"
+FEATURE_RANKING_LISTS = PROJECT_ROOT / "results" / "feature_rankings_lists"
+FEATURE_EVAL_TASKS = PROJECT_ROOT / "results" / "feature_evaluation_tasks"
+FEATURE_EVAL_PERFORMANCE_MEASURES = PROJECT_ROOT / "results" / "feature_evaluation_performance_measures"
+
+
 CONFIG_ROOT = PROJECT_ROOT / "experiments" / "configs"
 
 
@@ -23,6 +28,7 @@ def resolve_paths(cfg, dataset_name=None, model_name=None, method_name=None):
         "__DATA_PROCESSED__": str(DATA_PROCESSED),
         "__FEATURE_CONFIG__": str(FEATURE_CONFIG),
         "__RESULTS_DIR__": str(EXPERIMENT_RESULTS),
+        "__FEATURE_RANKING_LISTS__": str(FEATURE_RANKING_LISTS),
     }
 
     def replace_placeholders(value):

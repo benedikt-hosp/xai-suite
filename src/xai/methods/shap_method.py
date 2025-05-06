@@ -4,8 +4,13 @@ import pandas as pd
 import shap
 from tqdm import tqdm
 
+# from src.start_experiments import logger
+
+
 def shap_method(model, dataloader, feature_names, version='v1', device='cuda', sequence_length=10):
     torch.backends.cudnn.enabled = False
+    print(f"[XAI] Using {len(feature_names)} features for attribution.")
+    print("feature_names", feature_names)
     # Store model training mode and set to required state
     was_training = model.training
     model.train()  # Required for SHAP + cuDNN RNNs

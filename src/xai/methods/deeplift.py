@@ -4,6 +4,9 @@ import pandas as pd
 from tqdm import tqdm
 from captum.attr import DeepLift
 
+# from src.start_experiments import logger
+
+
 def deeplift(model, dataloader, feature_names, baseline_type="zero", device="cuda"):
     """
     Compute feature importance using DeepLIFT over a full DataLoader.
@@ -18,6 +21,8 @@ def deeplift(model, dataloader, feature_names, baseline_type="zero", device="cud
     Returns:
         results: list of dicts [{feature, attribution}], sorted by descending attribution.
     """
+    print(f"[XAI] Using {len(feature_names)} features for attribution.")
+    print("feature_names", feature_names)
     model.to(device)
     model.eval()
     all_attributions = []

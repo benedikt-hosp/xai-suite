@@ -32,6 +32,9 @@ def integrated_gradients(
     Returns:
         List of dicts: [{'feature': ..., 'attribution': ...}, ...]
     """
+
+    print(f"[XAI] Computing feature importances using Integrated Gradients with {baseline_type} baseline.")
+    print(f"[XAI] Using {len(feature_names)} features for attribution.")
     model.eval()
     # model.to(device)
     all_attributions = []

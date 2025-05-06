@@ -89,12 +89,12 @@ class AbstractDatasetClass(ABC):
         """
         pass
 
-    # @abstractmethod
-    # def scale_features(self, data_in, isTrain=True):
-    #     """
-    #     Scale the features in the dataset.
-    #     """
-    #     pass
+    @abstractmethod
+    def scale_features(self, data_in, isTrain=True):
+        """
+        Scale the features in the dataset.
+        """
+        pass
 
     @abstractmethod
     def create_sequences(self, df):
