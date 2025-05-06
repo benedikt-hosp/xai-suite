@@ -96,13 +96,17 @@ class RobustVisionDataset(Dataset):
         else:
             # Prepare cleaned DataFrame for on-the-fly loaders
             df = self._read_raw()
-            print("⎯⎯⎯ RAW COLUMNS ⎯⎯⎯")
-            print(df.columns.tolist())
-            print("⎯⎯⎯––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––")
+            # print("⎯⎯⎯ RAW COLUMNS ⎯⎯⎯")
+            # print(df.columns.tolist())
+            # print("⎯⎯⎯––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––")
 
             df = self.create_features(df)
             df = self.normalize_data(df)
             self.cleaned_df = df
+            self.subject_ids = df["SubjectID"].tolist()
+            self.subject_list = sorted(set(self.subject_ids))
+
+
 
     def _read_raw(self) -> pd.DataFrame:
         records = []
@@ -354,6 +358,9 @@ class RobustVisionDataset(Dataset):
             self.scalers = pickle.load(f)
             self.feature_transformers = self.scalers.get('feature_transformers', {})
             self.target_scaler = self.scalers.get('target_scaler', None)
+
+        self.subject_ids = self.subject_list
+
 
 
 def get_dataset(name: str, params: dict) -> RobustVisionDataset:
