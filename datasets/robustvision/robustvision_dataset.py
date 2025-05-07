@@ -31,6 +31,7 @@ class RobustVisionDataset(Dataset):
         cfg = json.loads(Path(feature_config).read_text())
         self.input_features = cfg["input_features"]
         self.target_feature = cfg["target_feature"]
+        self.meta_feature = cfg["meta_features"]
 
         if load_processed and (self.processed_root / "features.pt").exists():
             self._load_cache()
@@ -58,64 +59,187 @@ class RobustVisionDataset(Dataset):
         return df
 
     def _full_preprocess_and_save(self):
-        df = self._read_all_csv()
+        # df = self._read_all_csv()
+        #
+        # df = createFeatures(df)
+        #
+        # # create raw sequences
+        # feats, targets, subjects = self.create_sequences(df)
+        #
+        # # save **raw** tensors (no scaling!)
+        # self.processed_root.mkdir(parents=True, exist_ok=True)
+        # torch.save(torch.tensor(torch.from_numpy(feats), dtype=torch.float32),
+        #            self.processed_root / "features_raw.pt")
+        # torch.save(torch.tensor(targets, dtype=torch.float32),
+        #            self.processed_root / "targets_raw.pt")
+        # torch.save(subjects, self.processed_root / "subjects.pt")
+        #
+        # # store metadata
+        # with open(self.processed_root / "feature_names.json", "w") as f:
+        #     json.dump(self.input_features, f)
 
-        # 1) feature engineering
+        # 1) Read raw & engineer all your numeric columns
+        df = self._read_all_csv()
         df = createFeatures(df, input_features=self.input_features)
 
-        # 2) sliding‐window sequences per subject
-        X, y, subs = [], [], []
-        arr_X   = df[self.input_features].astype(np.float32).to_numpy()
-        arr_y   = df[self.target_feature].astype(np.float32).to_numpy()
-        arr_sub = df["SubjectID"].to_numpy()
+        # 2) Now drop everything except SubjectID (for grouping), the target, and your inputs:
+        cols_to_keep = ["SubjectID", self.target_feature] + self.input_features
+        df = df[cols_to_keep]
 
-        for subj in np.unique(arr_sub):
-            idxs = np.where(arr_sub == subj)[0]
-            X_sub, y_sub = arr_X[idxs], arr_y[idxs]
+        # 3) Build sequences. At this point df only has purely numeric columns
+        feats, targets, subjects = [], [], []
+        X_all = df[self.input_features].to_numpy(dtype=np.float32)
+        y_all = df[self.target_feature].to_numpy(dtype=np.float32)
+        subj_all = df["SubjectID"].to_numpy()
+
+        for subj in np.unique(subj_all):
+            idxs = np.where(subj_all == subj)[0]
+            X_sub, y_sub = X_all[idxs], y_all[idxs]
             for i in range(len(X_sub) - self.seq_len):
-                X.append(X_sub[i : i + self.seq_len])
-                y.append(y_sub[i + self.seq_len])
+                feats.append(X_sub[i: i + self.seq_len])
+                targets.append(y_sub[i + self.seq_len])
+                subjects.append(subj)
+
+        feats = np.stack(feats, axis=0)  # shape (N, seq_len, F)
+        targets = np.array(targets, dtype=np.float32)
+        subjects = np.array(subjects)  # strings OK here
+
+        # 4) Convert and save
+        self.processed_root.mkdir(parents=True, exist_ok=True)
+        torch.save(torch.from_numpy(feats), self.processed_root / "features_raw.pt")
+        torch.save(torch.from_numpy(targets), self.processed_root / "targets_raw.pt")
+        # torch.save(subjects, self.processed_root / "subjects.pt")
+        # subjects is a numpy array of subject‐IDs; save as JSON instead
+
+        with open(self.processed_root / "subjects.json", "w") as f:
+            json.dump(subjects.tolist(), f)
+
+        # 5) Remember them for LOOCV
+        self.features_raw = torch.from_numpy(feats)
+        self.targets_raw = torch.from_numpy(targets)
+        self.subject_ids = subjects.tolist()
+        self.subject_list = sorted(set(self.subject_ids))
+        self.feature_names = self.input_features.copy()
+
+        # # 1) feature engineering
+        # df = createFeatures(df, input_features=self.input_features)
+        #
+        # # 2) sliding‐window sequences per subject
+        # X, y, subs = [], [], []
+        # arr_X   = df[self.input_features].astype(np.float32).to_numpy()
+        # arr_y   = df[self.target_feature].astype(np.float32).to_numpy()
+        # arr_sub = df["SubjectID"].to_numpy()
+        #
+        # for subj in np.unique(arr_sub):
+        #     idxs = np.where(arr_sub == subj)[0]
+        #     X_sub, y_sub = arr_X[idxs], arr_y[idxs]
+        #     for i in range(len(X_sub) - self.seq_len):
+        #         X.append(X_sub[i : i + self.seq_len])
+        #         y.append(y_sub[i + self.seq_len])
+        #         subs.append(subj)
+        #
+        # X = np.stack(X, axis=0)    # shape (N, seq_len, F)
+        # y = np.array(y, dtype=np.float32)
+        # subs = np.array(subs)
+        #
+        # # 3) save to disk
+        # self.processed_root.mkdir(parents=True, exist_ok=True)
+        # torch.save(torch.from_numpy(X),        self.processed_root / "features.pt")
+        # torch.save(torch.from_numpy(y),        self.processed_root / "targets.pt")
+        # torch.save(subs,                       self.processed_root / "subjects.pt")
+        # with open(self.processed_root / "feature_names.json", "w") as f:
+        #     json.dump(self.input_features, f)
+        #
+        # # cache in memory
+        # self.features      = torch.from_numpy(X)
+        # self.targets       = torch.from_numpy(y)
+        # self.subjects      = subs.tolist()
+        # self.feature_names = list(self.input_features)
+        #
+        # # after you set `self.features`, `self.targets` and `self.subjects` …
+        # self.features_tensor = self.features
+        # self.targets_tensor = self.targets
+
+    # def create_sequences(self, df: pd.DataFrame):
+    #     seqs, targets, subs = [], [], []
+    #     for subj, grp in df.groupby('SubjectID'):
+    #         arr = grp.to_numpy()
+    #         for i in range(len(arr) - self.seq_len):
+    #             seqs.append(arr[i:i+self.seq_len, :][..., [df.columns.get_loc(f) for f in self.input_features]])
+    #             targets.append(arr[i+self.seq_len, df.columns.get_loc(self.target_feature)])
+    #             subs.append(subj)
+    #     return np.array(seqs), np.array(targets), np.array(subs)
+    #
+    #     def create_sequences(self, df: pd.DataFrame):
+    #         seqs, targets, subs = [], [], []
+    #         for subj, grp in df.groupby('SubjectID'):
+    #             arr = grp.to_numpy()
+    #             for i in range(len(arr) - self.sequence_length):
+    #                 seqs.append(arr[i:i+self.sequence_length, :][..., [df.columns.get_loc(f) for f in self.input_features]])
+    #                 targets.append(arr[i+self.sequence_length, df.columns.get_loc(self.target_feature)])
+    #                 subs.append(subj)
+    #         return np.array(seqs), np.array(targets), np.array(subs)
+
+    def create_sequences(self, df: pd.DataFrame):
+        """
+        Build (N, seq_len, F) feature tensors and (N,) target vector grouped by SubjectID.
+        """
+        seqs, targets, subs = [], [], []
+
+        # 1) grab the pure numeric feature‐matrix and target‐vector
+        X_all = df[self.input_features].astype(np.float32).to_numpy()
+        y_all = df[self.target_feature].astype(np.float32).to_numpy()
+        subj_all = df['SubjectID'].to_numpy()
+
+        # 2) for each subject, roll a sliding window
+        for subj in np.unique(subj_all):
+            idxs = np.where(subj_all == subj)[0]
+            X_sub = X_all[idxs]
+            y_sub = y_all[idxs]
+            for i in range(len(X_sub) - self.seq_len):
+                seqs.append(X_sub[i: i + self.seq_len])
+                targets.append(y_sub[i + self.seq_len])
                 subs.append(subj)
 
-        X = np.stack(X, axis=0)    # shape (N, seq_len, F)
-        y = np.array(y, dtype=np.float32)
-        subs = np.array(subs)
-
-        # 3) save to disk
-        self.processed_root.mkdir(parents=True, exist_ok=True)
-        torch.save(torch.from_numpy(X),        self.processed_root / "features.pt")
-        torch.save(torch.from_numpy(y),        self.processed_root / "targets.pt")
-        torch.save(subs,                       self.processed_root / "subjects.pt")
-        with open(self.processed_root / "feature_names.json", "w") as f:
-            json.dump(self.input_features, f)
-
-        # cache in memory
-        self.features      = torch.from_numpy(X)
-        self.targets       = torch.from_numpy(y)
-        self.subjects      = subs.tolist()
-        self.feature_names = list(self.input_features)
-
-        # after you set `self.features`, `self.targets` and `self.subjects` …
-        self.features_tensor = self.features
-        self.targets_tensor = self.targets
+        # 3) stack into real float32 arrays
+        return (
+            np.stack(seqs, axis=0),  # shape (num_seqs, seq_len, n_features)
+            np.array(targets, dtype=np.float32),
+            np.array(subs)
+        )
 
     def _load_cache(self):
-        # torch.load in PyTorch ≥2.6 needs weights_only=False to load generic tensors
-        self.features      = torch.load(self.processed_root / "features.pt", weights_only=False).float()
-        self.targets       = torch.load(self.processed_root / "targets.pt",  weights_only=False).float()
-        subs               = torch.load(self.processed_root / "subjects.pt", weights_only=False)
-        self.subjects      = subs.tolist()
+        self.features_raw = torch.load(self.processed_root / "features_raw.pt")
+        self.targets_raw = torch.load(self.processed_root / "targets_raw.pt")
+        # self.subject_ids = torch.load(self.processed_root / "subjects.pt").tolist()
+
+        # load subject‐IDs from JSON
+
+        with open(self.processed_root / "subjects.json", "r") as f:
+            self.subject_ids = json.load(f)
+
+        self.subject_list = sorted(set(self.subject_ids))
+
+
         self.feature_names = json.load(open(self.processed_root / "feature_names.json"))
 
+        #
+        # # torch.load in PyTorch ≥2.6 needs weights_only=False to load generic tensors
+        # self.features      = torch.load(self.processed_root / "features.pt", weights_only=False).float()
+        # self.targets       = torch.load(self.processed_root / "targets.pt",  weights_only=False).float()
+        # subs               = torch.load(self.processed_root / "subjects.pt", weights_only=False)
+        # self.subjects      = subs.tolist()
+        # self.feature_names = json.load(open(self.processed_root / "feature_names.json"))
+
         # after you set `self.features`, `self.targets` and `self.subjects` …
-        self.features_tensor = self.features
-        self.targets_tensor = self.targets
+        # self.features_tensor = self.features
+        # self.targets_tensor = self.targets
 
     def __len__(self):
-        return self.features.shape[0]
+        return self.features_raw.shape[0]
 
     def __getitem__(self, idx):
-        return self.features[idx], self.targets[idx]
+        return self.features_raw[idx], self.targets_raw[idx]
 
     def set_selected_features(self, selected_features, mode="keep"):
         """
@@ -133,7 +257,7 @@ class RobustVisionDataset(Dataset):
             indices = [i for i, f in enumerate(self.feature_names) if f not in selected_features]
 
         # Slice the features tensor (N, seq_len, F) to only those indices
-        self.features_tensor = self.features_tensor[:, :, indices]
+        self.features_tensor = self.features_raw[:, :, indices]
         # Update stored feature names
         self.feature_names = [self.feature_names[i] for i in indices]
 
@@ -148,8 +272,8 @@ class RobustVisionDataset(Dataset):
         idx_tr = np.where(mask_train)[0]
         idx_va = np.where(mask_val)[0]
 
-        ds_tr = TensorDataset(self.features[idx_tr], self.targets[idx_tr])
-        ds_va = TensorDataset(self.features[idx_va], self.targets[idx_va])
+        ds_tr = TensorDataset(self.features_raw[idx_tr], self.targets_raw[idx_tr])
+        ds_va = TensorDataset(self.features_raw[idx_va], self.targets_raw[idx_va])
 
         loader_tr = DataLoader(ds_tr, batch_size=batch_size, shuffle=True)
         loader_va = DataLoader(ds_va, batch_size=batch_size, shuffle=False)

@@ -18,50 +18,100 @@ from torch.utils.data import TensorDataset, DataLoader
 from sklearn.preprocessing import RobustScaler, StandardScaler
 import logging
 
-logger = logging.getLogger(__name__)
+from sklearn.preprocessing import RobustScaler, StandardScaler
+
 
 def run_loocv(trainer_factory, dataset):
-    X = dataset.features_tensor.numpy()    # (N, T, F)
-    y = dataset.targets_tensor.numpy()     # (N,)
-    subs = np.array(dataset.subjects)  # length = N, per-sample subject IDs
+    X_raw = dataset.features_raw.numpy()  # shape (N, seq_len, F)
+    y_raw = dataset.targets_raw.numpy()  # shape (N,)
+    subs = np.array(dataset.subject_ids)  # shape (N,)
 
     fold_maes = []
-    unique_subs = np.unique(subs)
-    for fold_idx, held in enumerate(unique_subs, 1):
-        logger.info(f"[LOOCV] Fold {fold_idx}/{len(unique_subs)}: held-out subject='{held}'")
+    for fold_idx, subj in enumerate(dataset.subject_list, 1):
+        # boolean masks
+        train_mask = subs != subj
+        val_mask = subs == subj
 
-        # 1) split train vs val by subject
-        train_mask = (subs != held)
-        val_mask   = (subs == held)
-        X_tr, y_tr = X[train_mask], y[train_mask]
-        X_vl, y_vl = X[val_mask],   y[val_mask]
+        X_tr, y_tr = X_raw[train_mask], y_raw[train_mask]
+        X_va, y_va = X_raw[val_mask], y_raw[val_mask]
 
-        # 2) fit feature scaler on TRAIN only
-        Ntr, T, F = X_tr.shape
-        feat_s     = RobustScaler().fit(X_tr.reshape(-1, F))
-        X_tr_s     = feat_s.transform(X_tr.reshape(-1, F)).reshape(Ntr, T, F)
-        X_vl_s     = feat_s.transform(X_vl.reshape(-1, F)).reshape(-1, T, F)
+        # ---- Fit feature scaler on train only ----
+        Ntr, L, F = X_tr.shape
+        feat_scaler = RobustScaler().fit(X_tr.reshape(-1, F))
+        X_tr_scaled = feat_scaler.transform(X_tr.reshape(-1, F)).reshape(Ntr, L, F)
+        X_va_scaled = feat_scaler.transform(X_va.reshape(-1, F)).reshape(-1, L, F)
 
-        # 3) fit target scaler on TRAIN only
-        tgt_s  = StandardScaler().fit(y_tr.reshape(-1,1))
-        y_tr_s = tgt_s.transform(y_tr.reshape(-1,1)).ravel()
-        y_vl_s = tgt_s.transform(y_vl.reshape(-1,1)).ravel()
+        # ---- Fit target scaler on train only (optional) ----
+        tgt_scaler = StandardScaler().fit(y_tr.reshape(-1, 1))
+        y_tr_scaled = tgt_scaler.transform(y_tr.reshape(-1, 1)).ravel()
+        # we'll evaluate MAE on the *original* scale:
 
-        # 4) build PyTorch loaders
-        train_ds = TensorDataset(torch.from_numpy(X_tr_s), torch.from_numpy(y_tr_s))
-        val_ds   = TensorDataset(torch.from_numpy(X_vl_s), torch.from_numpy(y_vl_s))
-        train_ld = DataLoader(train_ds, batch_size=460, shuffle=True)
-        val_ld   = DataLoader(val_ds,   batch_size=460, shuffle=False)
+        # ---- Build dataloaders ----
+        tr_loader = DataLoader(TensorDataset(
+            torch.from_numpy(X_tr_scaled), torch.from_numpy(y_tr_scaled)),
+            batch_size=460, shuffle=True)
+        va_loader = DataLoader(TensorDataset(
+            torch.from_numpy(X_va_scaled), torch.from_numpy(y_va)),
+            batch_size=460, shuffle=False)
 
-        # 5) train & evaluate
-        trainer = trainer_factory(F)
-        trainer.set_dataloaders(train_ld, val_ld)
-        trainer.setup()
-        mae     = trainer.run_fold(fold_idx)
-        fold_maes.append(mae)
+        # ---- Train & evaluate ----
+        trainer = trainer_factory(input_dim=F, feature_names=dataset.feature_names)
+        trainer.set_dataloaders(tr_loader, va_loader)
+        trainer.set_features(dataset.feature_names)
+        mae_scaled = trainer.run_fold(fold_idx)
 
-    mean_mae = float(np.mean(fold_maes))
-    return fold_maes, mean_mae
+        # inverse‐transform the MAE back to original scale:
+        # since MAE is linear, we can multiply by tgt_scaler.scale_[0]
+        mae_orig = mae_scaled * tgt_scaler.scale_[0]
+        fold_maes.append(mae_orig)
+
+    return dataset.subject_list, fold_maes, np.mean(fold_maes)
+
+#
+# logger = logging.getLogger(__name__)
+#
+# def run_loocv(trainer_factory, dataset):
+#     X = dataset.features_tensor.numpy()    # (N, T, F)
+#     y = dataset.targets_tensor.numpy()     # (N,)
+#     subs = np.array(dataset.subjects)  # length = N, per-sample subject IDs
+#
+#     fold_maes = []
+#     unique_subs = np.unique(subs)
+#     for fold_idx, held in enumerate(unique_subs, 1):
+#         logger.info(f"[LOOCV] Fold {fold_idx}/{len(unique_subs)}: held-out subject='{held}'")
+#
+#         # 1) split train vs val by subject
+#         train_mask = (subs != held)
+#         val_mask   = (subs == held)
+#         X_tr, y_tr = X[train_mask], y[train_mask]
+#         X_vl, y_vl = X[val_mask],   y[val_mask]
+#
+#         # 2) fit feature scaler on TRAIN only
+#         Ntr, T, F = X_tr.shape
+#         feat_s     = RobustScaler().fit(X_tr.reshape(-1, F))
+#         X_tr_s     = feat_s.transform(X_tr.reshape(-1, F)).reshape(Ntr, T, F)
+#         X_vl_s     = feat_s.transform(X_vl.reshape(-1, F)).reshape(-1, T, F)
+#
+#         # 3) fit target scaler on TRAIN only
+#         tgt_s  = StandardScaler().fit(y_tr.reshape(-1,1))
+#         y_tr_s = tgt_s.transform(y_tr.reshape(-1,1)).ravel()
+#         y_vl_s = tgt_s.transform(y_vl.reshape(-1,1)).ravel()
+#
+#         # 4) build PyTorch loaders
+#         train_ds = TensorDataset(torch.from_numpy(X_tr_s), torch.from_numpy(y_tr_s))
+#         val_ds   = TensorDataset(torch.from_numpy(X_vl_s), torch.from_numpy(y_vl_s))
+#         train_ld = DataLoader(train_ds, batch_size=460, shuffle=True)
+#         val_ld   = DataLoader(val_ds,   batch_size=460, shuffle=False)
+#
+#         # 5) train & evaluate
+#         trainer = trainer_factory(F)
+#         trainer.set_dataloaders(train_ld, val_ld)
+#         trainer.setup()
+#         mae     = trainer.run_fold(fold_idx)
+#         fold_maes.append(mae)
+#
+#     mean_mae = float(np.mean(fold_maes))
+#     return fold_maes, mean_mae
 
 
 

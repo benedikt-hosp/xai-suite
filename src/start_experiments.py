@@ -67,7 +67,7 @@ def compute_ranked_lists_for_all_methods():
                 # load the already‐processed dataset (it will load .pt files)
                 dataset = get_dataset(cfg["dataset"]["name"], cfg["dataset"]["params"])
                 # we just need the number of features, not loaders
-                input_size = dataset.features_tensor.shape[2]
+                input_size = dataset.features_raw.shape[2]
 
                 # init model & XAI
                 model = get_model(cfg["model"]["name"], input_size=input_size, **cfg["model"]["params"]).to(device)
@@ -84,7 +84,7 @@ def compute_ranked_lists_for_all_methods():
 
 
 if __name__ == "__main__":
-    # 1) Precompute & cache dataset once
+    # # 1) Precompute & cache dataset once
     # with open(EXPERIMENTS_ROOT / "rv" / "foval" / "deepACTIF.json") as f:
     #     cfg = resolve_paths(json.load(f), dataset_name="rv", model_name="foval", method_name="intgrad_accuracy")
     # preprocess_and_save(cfg["dataset"])
@@ -96,5 +96,5 @@ if __name__ == "__main__":
     #     traceback.print_exc()
 
     # 3) Kick off any downstream tasks you’ve automated
-    create_eval_tasks()
+    # create_eval_tasks()
     run_all_tasks()
