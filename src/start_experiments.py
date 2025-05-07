@@ -31,7 +31,7 @@ def preprocess_and_save(dataset_config):
     """
     logger.info("[PREPROCESS] Starting full preprocessing…")
     ds = get_dataset(dataset_config["name"], dataset_config["params"])
-    ds.preprocess_and_save()
+    ds._full_preprocess_and_save()
 
     logger.info(f"[PREPROCESS] Cached processed data under: {dataset_config['params']['save_path']}")
 
@@ -62,13 +62,12 @@ def compute_ranked_lists_for_all_methods():
 
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+                cfg["load_processed"] = True
+
                 # load the already‐processed dataset (it will load .pt files)
                 dataset = get_dataset(cfg["dataset"]["name"], cfg["dataset"]["params"])
-                _, _, input_size = dataset.get_data_loader(
-                    train_index=[dataset.subject_list[0]],  # dummy to get input_size
-                    val_index=None,
-                    batch_size=1
-                )
+                # we just need the number of features, not loaders
+                input_size = dataset.features_tensor.shape[2]
 
                 # init model & XAI
                 model = get_model(cfg["model"]["name"], input_size=input_size, **cfg["model"]["params"]).to(device)
@@ -83,24 +82,9 @@ def compute_ranked_lists_for_all_methods():
                 # save ranking
                 save_feature_ranking(dataset_name, model_name, method_name, importance_scores)
 
-                # # optional FS evaluation
-                # if cfg.get("evaluate_feature_selection", False):
-                #     from src.utils.evaluate_feature_selection import run_feature_selection_evaluation
-                #     run_feature_selection_evaluation(
-                #         dataset=dataset,
-                #         model_cfg=cfg["model"],
-                #         importance_scores=importance_scores,
-                #         feature_names=feature_names,
-                #         output_dir=cfg["evaluation"]["output_dir"],
-                #         top_k_percents=cfg["evaluation"]["top_k_percents"],
-                #         strategy=cfg["evaluation"]["strategy"],
-                #         seed=cfg.get("seed", 42),
-                #         subject_ids=dataset.subject_list
-                #     )
-
 
 if __name__ == "__main__":
-    # # 1) Precompute & cache dataset once
+    # 1) Precompute & cache dataset once
     # with open(EXPERIMENTS_ROOT / "rv" / "foval" / "deepACTIF.json") as f:
     #     cfg = resolve_paths(json.load(f), dataset_name="rv", model_name="foval", method_name="intgrad_accuracy")
     # preprocess_and_save(cfg["dataset"])

@@ -22,7 +22,7 @@ def nisp(model, dataloader, feature_names, version="v1", device="cuda"):
     Returns:
         List of dicts: [{'feature': ..., 'attribution': ...}, ...]
     """
-    lprint(f"[XAI] Using {len(feature_names)} features for attribution.")
+    print(f"[XAI] Using {len(feature_names)} features for attribution.")
     print("feature_names", feature_names)
     model.eval()
     model.to(device)

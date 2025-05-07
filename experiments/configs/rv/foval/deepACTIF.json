@@ -7,7 +7,7 @@
       "sequence_length": 10,
       "feature_config": "__FEATURE_CONFIG__",
       "save_path": "__DATA_PROCESSED__",
-      "load_processed": true
+      "load_processed": false
     }
   },
   "model": {

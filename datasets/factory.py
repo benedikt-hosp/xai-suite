@@ -7,11 +7,10 @@ def get_dataset(name: str, params: dict, skip_load: bool = False):
     """
     if name.lower() in {"robustvision", "rv"}:
         return RobustVisionDataset(
-            root             = params["root"],
-            save_path        = params["save_path"],
-            sequence_length  = params["sequence_length"],
+            raw_root             = params["root"],
+            processed_root        = params["save_path"],
+            seq_len               = params["sequence_length"],
             feature_config   = params["feature_config"],
-            split            = params.get("split", "all"),
             load_processed   = params.get("load_processed", False)
         )
     else:
