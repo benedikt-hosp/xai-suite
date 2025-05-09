@@ -23,7 +23,7 @@ from datasets.robustvision.preprocessor import createFeatures
 from src.utils.data_utils import create_dataloaders_dataset, create_lstm_tensors_dataset
 
 
-class RobustVisionDataset(Dataset):
+class RobustVisionDataset_FAST(Dataset):
     def __init__(self, raw_root, processed_root, feature_config, seq_len, load_processed=False):
 
         self.best_transformers = None
@@ -126,24 +126,24 @@ class RobustVisionDataset(Dataset):
             json.dump(self.feature_names, f)
 
         print(f"Cached {len(self.features_raw)} windows → {self.processed_root}")
-
-    def prepare_loader_on_df(self, df: pd.DataFrame, batch_size: int, is_train: bool):
-        # exactly your old logic, but operating on the passed-in df
-        data = df.copy()
-        data = self.normalize_data(data)
-        if is_train:
-            data = self.calculate_transformations_for_features(data)
-        else:
-            data = self.apply_transformations_on_features(data)
-
-        data = self.scale_target(data, isTrain=is_train)
-        sequences = self.create_sequences(data)
-        features, targets = separate_features_and_targets(sequences)
-
-        return create_dataloaders_dataset(
-            *create_lstm_tensors_dataset(features, targets, is_train),
-            batch_size=batch_size
-        )
+    #
+    # def prepare_loader_on_df(self, df: pd.DataFrame, batch_size: int, is_train: bool):
+    #     # exactly your old logic, but operating on the passed-in df
+    #     data = df.copy()
+    #     data = self.normalize_data(data)
+    #     if is_train:
+    #         data = self.calculate_transformations_for_features(data)
+    #     else:
+    #         data = self.apply_transformations_on_features(data)
+    #
+    #     data = self.scale_target(data, isTrain=is_train)
+    #     sequences = self.create_sequences(data)
+    #     features, targets = separate_features_and_targets(sequences)
+    #
+    #     return create_dataloaders_dataset(
+    #         *create_lstm_tensors_dataset(features, targets, is_train),
+    #         batch_size=batch_size
+    #     )
 
     def get_fold_from_tensors(self, held_out_subj, batch_size):
         # 1) turn subject_ids into an array so we can boolean‐index

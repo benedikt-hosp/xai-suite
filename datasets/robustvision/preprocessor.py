@@ -171,26 +171,38 @@ def getAngle(row):
 
 from sklearn.preprocessing import RobustScaler
 import pandas as pd
+#
+# def global_normalization(data: pd.DataFrame) -> pd.DataFrame:
+#     # 1) which columns *not* to scale?
+#     not_features = ["SubjectID", "GT_Depth"]
+#
+#     print("Data columns are ", data.columns)
+#     # # 2) our true feature columns
+#     feature_cols = [c for c in data.columns if c not in not_features]
+#
+#     # 3) scale *only* those
+#     scaler = RobustScaler()
+#     scaled = scaler.fit_transform(data[feature_cols])
+#
+#     # 4) rebuild a DataFrame with exactly the same index
+#     df_scaled = pd.DataFrame(scaled, columns=feature_cols, index=data.index)
+#
+#     # 5) re-attach the meta and target columns untouched
+#     for col in not_features:
+#         df_scaled[col] = data[col].values
+#
+#     return df_scaled
 
-def global_normalization(data: pd.DataFrame) -> pd.DataFrame:
-    # 1) which columns *not* to scale?
-    not_features = ["SubjectID", "GT_Depth"]
+def global_normalization(data):
+    features = data.drop(columns=['SubjectID', 'Gt_Depth'])
+    scaler = RobustScaler()  # Global scaler
 
-    # # 2) our true feature columns
-    feature_cols = [c for c in data.columns if c not in not_features]
+    normalized_features = scaler.fit_transform(features)
+    data_normalized = pd.DataFrame(normalized_features, columns=features.columns)
+    data_normalized['SubjectID'] = data['SubjectID'].values
+    data_normalized['Gt_Depth'] = data['Gt_Depth'].values
+    return data_normalized
 
-    # 3) scale *only* those
-    scaler = RobustScaler()
-    scaled = scaler.fit_transform(data[feature_cols])
-
-    # 4) rebuild a DataFrame with exactly the same index
-    df_scaled = pd.DataFrame(scaled, columns=feature_cols, index=data.index)
-
-    # 5) re-attach the meta and target columns untouched
-    for col in not_features:
-        df_scaled[col] = data[col].values
-
-    return df_scaled
 
 
 
@@ -420,22 +432,25 @@ def createFeatures(data_in, input_features=None):
 
     data_in = data_in.replace([np.inf, -np.inf], np.nan)
     data_in = data_in.dropna()
+    data_in = data_in[input_features]
+
+    print("Data_in has ", data_in.shape[0], " rows and ", data_in.shape[1], " columns.")
 
 
     return data_in
 
-def separate_features_and_targets(self, sequences):
-    features = []
-    targets = []
-    for seq in sequences:
-        features.append(seq)
-        targets.append(seq[-1][self.target_feature])  # z. B. letztes Target in der Sequenz
-    return np.array(features), np.array(targets)
+# def separate_features_and_targets(sequences, target_feature):
+#     features = []
+#     targets = []
+#     for seq in sequences:
+#         features.append(seq)
+#         targets.append(seq[-1][target_feature])  # z. B. letztes Target in der Sequenz
+#     return np.array(features), np.array(targets)
 
-# def separate_features_and_targets(sequences):
-#     features = [seq[0] for seq in sequences]
-#     targets = [seq[1] for seq in sequences]
-#     return features, targets
+def separate_features_and_targets(sequences):
+    features = [seq[0] for seq in sequences]
+    targets = [seq[1] for seq in sequences]
+    return features, targets
 
 
 def binData(df, isGIW=False):

@@ -5,6 +5,12 @@ import traceback
 from copy import deepcopy
 from pathlib import Path
 
+from src.utils.foval.FOVAL import FOVAL
+from src.utils.foval_trainer import FOVALTrainer
+from src.utils.robustVision_dataset import RobustVisionDataset  # your AbstractDatasetClass impl
+
+
+
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
@@ -12,22 +18,22 @@ from tqdm import tqdm
 
 from datasets.factory import get_dataset
 from src.utils.evaluate_loocv import run_loocv
-from src.utils.torchtrainer import TorchTrainer
+# from src.utils.torchtrainer import TorchTrainer
 # from src.utils.torchtrainer import build_trainer
 from src.xai.factory import get_xai_method
 from models.factory import get_model
 from src.utils.save_modul import save_feature_ranking
 from src.utils.generate_eval_tasks import create_eval_tasks
 from src.utils.run_all_feature_evaluation_tasks import run_all_tasks
-from utils.project_paths import DATA_PROCESSED, resolve_paths, CONFIG_ROOT
+from utils.project_paths import DATA_PROCESSED, resolve_paths, CONFIG_ROOT, PROJECT_ROOT
 
 # ──────────────────────────────────────────────────────────────────────────────
 EXPERIMENTS_ROOT = CONFIG_ROOT
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
-logger.info(f"[INFO] Looking for experiments in: {EXPERIMENTS_ROOT}")
-logger.info(f"[INFO] Found datasets: {os.listdir(EXPERIMENTS_ROOT)}")
+# logger.info(f"[INFO] Looking for experiments in: {EXPERIMENTS_ROOT}")
+# logger.info(f"[INFO] Found datasets: {os.listdir(EXPERIMENTS_ROOT)}")
 
 
 def preprocess_and_save(dataset_config):
@@ -83,22 +89,23 @@ def compute_ranked_lists_for_all_methods():
                         **cfg["model"]["params"]
                     ).to(device)
 
-                    return TorchTrainer(
-                        model=model,
-                        optimizer_cfg={
-                            "type": "adamw",
-                            "lr":    cfg["model"]["params"]["learning_rate"],
-                            "weight_decay": cfg["model"]["params"]["weight_decay"]
-                        },
-                        scheduler_cfg={
-                            "type": "cosine",
-                            "T_max": cfg["model"]["params"].get("epochs", 300),
-                            "eta_min": 0.0
-                        },
-                        loss_cfg={"type": "smoothl1", "beta": 0.75},
-                        early_stopping_cfg={"patience": 150, "min_delta": 0.0},
-                        device=device
-                    )
+                    return None
+                    # return TorchTrainer(
+                    #     model=model,
+                    #     optimizer_cfg={
+                    #         "type": "adamw",
+                    #         "lr":    cfg["model"]["params"]["learning_rate"],
+                    #         "weight_decay": cfg["model"]["params"]["weight_decay"]
+                    #     },
+                    #     scheduler_cfg={
+                    #         "type": "cosine",
+                    #         "T_max": cfg["model"]["params"].get("epochs", 300),
+                    #         "eta_min": 0.0
+                    #     },
+                    #     loss_cfg={"type": "smoothl1", "beta": 0.75},
+                    #     early_stopping_cfg={"patience": 150, "min_delta": 0.0},
+                    #     device=device
+                    # )
 
                 # 3) run LOOCV *for metrics* (optional; you can skip if you only want XAI)
                 subject_mae, mean_mae = run_loocv(trainer_factory, ds_for_xai)
@@ -125,16 +132,70 @@ def compute_ranked_lists_for_all_methods():
                 importance_scores = np.mean(fold_imps, axis=0)
                 save_feature_ranking(dataset_name, model_name, method_name, importance_scores)
 
+def compute_ranked_lists_for_all_methods_slow():
+    # logger.info("[START] Running experiment loop…")
+    # for dataset_name in tqdm(os.listdir(EXPERIMENTS_ROOT), desc="Datasets"):
+    #     ds_dir = EXPERIMENTS_ROOT / dataset_name
+    #     if not ds_dir.is_dir(): continue
+    #
+    #     for model_name in os.listdir(ds_dir):
+    #         mdl_dir = ds_dir / model_name
+    #         if not mdl_dir.is_dir(): continue
+    #
+    #         for method_file in os.listdir(mdl_dir):
+    #             if not method_file.endswith(".json"): continue
+    #
+    #             method_name = method_file[:-5]
+    #             config_path = mdl_dir / method_file
+    #             cfg = resolve_paths(
+    #                 json.load(open(config_path)),
+    #                 dataset_name, model_name, method_name
+    #             )
+
+    # logger.info(f"🔍  {dataset_name} | {model_name} | {method_name}")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    RAW_ROOT = Path(__file__).parent.parent / "data" /  "robustvision"
+
+    dataset = RobustVisionDataset(data_dir=str(RAW_ROOT.resolve()), sequence_length=10)
+    dataset.load_data()
+
+    config_path = Path( PROJECT_ROOT/ "src" / "utils" / "foval" / "config" / "foval.json")
+    print("Config path: ", config_path)
+
+    trainer = FOVALTrainer(config_path=config_path,  dataset=dataset, device=device,
+                           feature_names=None, save_intermediates_every_epoch=False)
+    #
+    # trainer.dataset = dataset
+    #
+    # Baseline performance with full feature set
+    all_features = trainer.dataset.input_features
+    feature_count = len(all_features) - 2
+    trainer.feature_names = all_features
+    trainer.dataset = dataset
+
+    print("Feature names: ", trainer.feature_names)
+
+    trainer.setup()
+
+    # 2) call its built‐in CV
+    mean_mae = trainer.cross_validate(num_epochs=500)
+    logger.info(f"[RESULT] Original FOVAL CV mean MAE={mean_mae:.4f}")
+
+                # skip the rest until we confirm this baseline
+                # continue
+
 
 if __name__ == "__main__":
-    # 1) Precompute & cache dataset once
-    with open(EXPERIMENTS_ROOT / "rv" / "foval" / "deepACTIF.json") as f:
-        cfg = resolve_paths(json.load(f), dataset_name="rv", model_name="foval", method_name="intgrad_accuracy")
-    preprocess_and_save(cfg["dataset"])
+    # # 1) Precompute & cache dataset once
+    # with open(EXPERIMENTS_ROOT / "rv" / "foval" / "deepACTIF.json") as f:
+    #     cfg = resolve_paths(json.load(f), dataset_name="rv", model_name="foval", method_name="intgrad_accuracy")
+    # preprocess_and_save(cfg["dataset"])
 
     # 2) Run all your XAI experiments
     try:
-        compute_ranked_lists_for_all_methods()
+        # compute_ranked_lists_for_all_methods()
+        compute_ranked_lists_for_all_methods_slow()
     except Exception:
         traceback.print_exc()
 

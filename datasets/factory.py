@@ -1,6 +1,6 @@
 
-from datasets.robustvision.robustvision_dataset import RobustVisionDataset
-
+# from datasets.robustvision.robustvision_dataset import RobustVisionDataset
+from src.utils.robustVision_dataset import RobustVisionDataset
 def get_dataset(name: str, params: dict, load_processed= True):
     """
     Factory that returns a Dataset ready for LOOCV.

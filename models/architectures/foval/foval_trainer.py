@@ -16,7 +16,7 @@ from models.architectures.foval.utilities import create_optimizer
 
 
 
-class FOVALTrainer:
+class FOVALTrainer_fast:
     def __init__(self, dataset: AbstractDatasetClass, feature_names,
                  save_intermediates_every_epoch, device="cuda:0"):
         """
